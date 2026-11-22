@@ -8,11 +8,17 @@ from pathlib import Path
 from PIL import Image
 
 from .core import (
+    analyze_text_style,
     auto_remove_background,
+    compose_styled_text,
+    crop_image,
+    flip_image,
     imitate_handwriting,
     rect_cutout,
     remove_by_color,
     render_text,
+    resize_image,
+    rotate_image,
 )
 
 
@@ -57,13 +63,20 @@ def build_parser() -> argparse.ArgumentParser:
   SimplePS -i photo.png -o cut.png --mode rect --rect 80,40,160,170
   SimplePS --mode text --text "你好 SimplePS" --font-name "NotoSansCJK Regular" -o text.png
   SimplePS --mode hand --text "Hello 世界" --size 72 --seed 8 -o hand.png
+  SimplePS -i photo.png -o out.png --mode imitate --rect 40,30,300,90 --ref-text "参考文字" --text "新文字" --pos 200,300
+  SimplePS -i photo.png -o out.png --mode resize --scale 0.5
+  SimplePS -i photo.png -o out.png --mode rotate --rotate 30
+  SimplePS -i photo.png -o out.png --mode flip --flip horizontal
+  SimplePS -i photo.png -o out.png --mode crop --rect 0,0,400,300
 """,
     )
     p.add_argument("-i", "--input", help="输入图片路径")
     p.add_argument("-o", "--output", help="输出图片路径（默认 out.png）")
-    p.add_argument("--mode", choices=["auto", "color", "rect", "text", "hand"], default="auto",
-                   help="处理模式: auto=自动去背景, color=按颜色去背景, rect=矩形抠图, text=文字渲染, hand=手写模仿")
-    p.add_argument("--rect", type=_parse_rect, help="抠图矩形 x,y,w,h（mode=rect）")
+    p.add_argument("--mode", choices=["auto", "color", "rect", "text", "hand", "imitate",
+                                      "resize", "rotate", "crop", "flip"], default="auto",
+                   help="处理模式: auto/color/rect=去背景抠图, text/hand=文字渲染, "
+                        "imitate=模仿图片文字样式, resize/rotate/crop/flip=图片变换")
+    p.add_argument("--rect", type=_parse_rect, help="矩形 x,y,w,h（mode=rect/imitate/crop）")
     p.add_argument("--samples", type=_parse_samples, help="背景采样点 x:y;x:y（mode=color）")
     p.add_argument("--text", help="要生成的文字（mode=text/hand）")
     p.add_argument("--font", help="字体文件路径")
@@ -79,6 +92,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--jitter", type=float, default=4.0, help="手写字抖动幅度")
     p.add_argument("--angle", type=float, default=8.0, help="手写旋转角度范围")
     p.add_argument("--seed", type=int, default=None, help="手写随机种子")
+    p.add_argument("--ref-text", help="图片中参考文字的内容（mode=imitate）")
+    p.add_argument("--pos", type=lambda s: tuple(int(float(v)) for v in s.split(",")),
+                   help="新文字放置位置 x,y（mode=imitate）")
+    p.add_argument("--scale", type=float, help="缩放比例（mode=resize）")
+    p.add_argument("--width", type=int, help="目标宽度（mode=resize）")
+    p.add_argument("--height", type=int, help="目标高度（mode=resize）")
+    p.add_argument("--rotate", type=float, help="旋转角度（mode=rotate）")
+    p.add_argument("--flip", choices=["horizontal", "vertical"], help="翻转方向（mode=flip）")
     p.add_argument("--gui", action="store_true", help="强制启动图形界面")
     return p
 
@@ -120,12 +141,36 @@ def run_cli(argv: list[str] | None = None) -> int:
         elif args.mode == "color":
             result = remove_by_color(image, samples=args.samples, tolerance=args.tolerance,
                                      softness=args.softness, feather=args.feather)
-        else:
+        elif args.mode == "rect":
             if not args.rect:
                 print("错误: rect 模式需要 --rect x,y,w,h", flush=True)
                 return 2
             result = rect_cutout(image, rect=args.rect, iterations=args.iterations,
                                  feather=args.feather)
+        elif args.mode == "resize":
+            result = resize_image(image, width=args.width, height=args.height, scale=args.scale)
+        elif args.mode == "rotate":
+            result = rotate_image(image, args.rotate if args.rotate is not None else 0)
+        elif args.mode == "flip":
+            result = flip_image(image, args.flip or "horizontal")
+        elif args.mode == "crop":
+            if not args.rect:
+                print("错误: crop 模式需要 --rect x,y,w,h", flush=True)
+                return 2
+            x, y, w, h = args.rect
+            result = crop_image(image, (x, y, x + w, y + h))
+        elif args.mode == "imitate":
+            if not args.rect or not args.text:
+                print("错误: imitate 模式需要 --rect x,y,w,h 和 --text 新文字", flush=True)
+                return 2
+            x, y, w, h = args.rect
+            style = analyze_text_style(image, (x, y, x + w, y + h),
+                                       reference_text=args.ref_text or None)
+            pos = args.pos or (image.width // 2, image.height // 2)
+            result = compose_styled_text(image, args.text, style, position=pos)
+        else:
+            print(f"错误: 未知模式 {args.mode}", flush=True)
+            return 2
 
     out = Path(args.output or "out.png")
     out.parent.mkdir(parents=True, exist_ok=True)

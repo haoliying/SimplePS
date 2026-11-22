@@ -1,8 +1,10 @@
 # SimplePS
 
-> 轻量级图像处理桌面工具：**去背景 / 抠图 / 字体模仿**，完全离线运行。
+> 现代化图像处理桌面工具：**去背景 / 抠图 / 字体模仿 / 图片编辑**，完全离线运行。v2.0 带来全新深色编辑器界面。
 
 基于 Python + OpenCV + Pillow + tkinter。提供 Windows 单文件 EXE（无需安装 Python），也可作为命令行工具批处理。
+
+![界面预览](examples/ui_text.png)
 
 ---
 
@@ -12,10 +14,20 @@
 |---|---|
 | 自动去背景 | 自动采样画面边缘颜色并用 GrabCut 精修，适合绝大多数主体/背景有色差的图片 |
 | 按颜色去背景 | 取四角或手动采样点，按 Lab 颜色距离抠除纯色/渐变背景，边缘带羽化 |
-| 矩形抠图 | 在图片上拖拽框住主体，GrabCut 自动分割 |
-| 笔刷抠图 | 绿色笔刷标记保留区域、红色笔刷标记擦除区域，精细修正 |
-| 字体模仿 | 扫描系统字体，支持描边、阴影、渐变、多行排版，以及逐字旋转抖动的**手写模仿** |
+| 矩形 / 笔刷抠图 | 拖拽框选主体或绿/红笔刷标记后 GrabCut 精细分割 |
+| **智能字体模仿** | 框选图片中的一行文字 → 自动识别其**字体 / 字号 / 倾斜角 / 颜色** → 输入新文字，点击图片任意位置合成 |
+| 手写模仿 | 逐字旋转抖动的毛笔手写风格，支持描边、阴影、渐变、多行 |
+| **图片变换** | 缩放（比例 / 指定尺寸）、任意角度旋转、90° 步进、水平/垂直翻转、矩形裁剪 |
+| 画布交互 | 滚轮缩放、中键拖拽平移、棋盘格透明背景显示 |
 | 通用 | 打开/保存、PNG 透明通道、撤销/重做、Ctrl+O / Ctrl+S / Ctrl+Z 快捷键 |
+
+### 字体模仿怎么用
+
+1. 切到「字体模仿」Tab，点 **框选参考文字区域**，在图片上拖出图中那一行文字。
+2. 在「图中文字内容」里输入图片上写的是什么（用于更准的字体匹配），点 **分析样式**。
+3. 系统会识别出字体、字号、倾斜角与颜色（可手动微调）。
+4. 输入你想生成的新文字，点 **在图片上点击选择位置**，再点 **合成到图片**。
+5. 不满意可 Ctrl+Z 撤销重来。也可直接 **导出文字为 PNG**。
 
 ---
 
@@ -62,11 +74,22 @@ python main.py -i photo.jpg -o cut.png --mode rect --rect 80,40,160,170
 python main.py --mode text --text "你好 SimplePS" --size 72 -o text.png
 python main.py --mode hand --text "Hello 世界" --seed 8 -o hand.png
 
+# 模仿图片中的文字样式并合成新文字（框选区域 x,y,w,h）
+python main.py -i photo.png -o out.png --mode imitate --rect 40,30,300,90 \
+    --ref-text "参考文字" --text "新文字" --pos 200,300
+
+# 图片变换：缩放 / 旋转 / 裁剪 / 翻转
+python main.py -i photo.png -o out.png --mode resize --scale 0.5
+python main.py -i photo.png -o out.png --mode resize --width 400
+python main.py -i photo.png -o out.png --mode rotate --rotate 30
+python main.py -i photo.png -o out.png --mode crop --rect 0,0,400,300
+python main.py -i photo.png -o out.png --mode flip --flip horizontal
+
 # 查看系统字体
 python main.py --list-fonts
 ```
 
-常用参数：`--tolerance`（颜色容差）、`--iterations`（GrabCut 迭代）、`--feather`（羽化）、`--font`（字体文件）、`--font-name`（字体名）、`--color`（颜色，如 `255,0,0,255`）、`--jitter` / `--angle`（手写抖动）。
+常用参数：`--tolerance`（颜色容差）、`--iterations`（GrabCut 迭代）、`--feather`（羽化）、`--font` / `--font-name`（字体）、`--color`（如 `255,0,0,255`）、`--jitter` / `--angle`（手写抖动）、`--ref-text` / `--pos`（字体模仿）。
 
 ---
 
