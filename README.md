@@ -21,7 +21,10 @@
 
 ## 下载 Windows EXE
 
-进入仓库 **Actions** → **Build Windows EXE** → 点击最新一次成功运行，在 **Artifacts** 中下载 `SimplePS-Windows.zip`。
+- 仓库地址：<https://github.com/haoliying/SimplePS>
+- 已构建好的 EXE：<https://github.com/haoliying/SimplePS/releases/tag/v1.0.0>（`SimplePS.exe` 与 `SimplePS-cli.exe`）
+
+也可以进入仓库 **Actions** → **Build Windows EXE** → 点击最新一次成功运行，在 **Artifacts** 中下载 `SimplePS-Windows.zip`。
 
 也可以给仓库打一个 `v*` 标签（例如 `v1.0.0`），CI 会自动构建并把 EXE 发布到 Releases：
 
