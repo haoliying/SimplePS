@@ -1,6 +1,7 @@
-"""SimplePS 图形界面 — 现代化深色图像编辑器。
+"""SimplePS 图形界面 — 华为相册风格图片编辑器。
 
-布局仿移动端图像软件：顶部操作栏 + 中央画布 + 底部工具 Tab + 工具属性面板。
+布局：顶部简洁操作栏 + 全屏深色画布 + 工具选项条 + 底部图标工具栏。
+无图片时点击画布任意位置即可选择图片。
 """
 
 from __future__ import annotations
@@ -37,24 +38,35 @@ FILE_TYPES = [
     ("BMP 图片", "*.bmp"), ("WebP 图片", "*.webp"), ("所有文件", "*.*"),
 ]
 
-# 深色主题配色
-BG = "#1b1d23"
-PANEL = "#23262e"
-PANEL2 = "#2b2f39"
-CARD = "#313642"
-FG = "#e8ebf2"
-MUTED = "#9aa3b2"
-ACCENT = "#4f8cff"
-ACCENT2 = "#22c3a6"
-LINE = "#3a4050"
+# 深色主题配色（华为相册风格）
+BG = "#000000"
+BAR = "#141414"
+PANEL = "#1c1c1e"
+PANEL2 = "#2c2c2e"
+CARD = "#242426"
+FG = "#f2f2f7"
+MUTED = "#98989f"
+ACCENT = "#0a84ff"
+ACCENT2 = "#30d158"
+LINE = "#3a3a3c"
+
+# (key, 图标, 标题)
+TOOLS = [
+    ("bg", "◐", "去背景"),
+    ("cutout", "✂", "抠图"),
+    ("text", "T", "文字"),
+    ("crop", "▢", "裁剪"),
+    ("rotate", "⟳", "旋转"),
+    ("transform", "⤢", "变换"),
+]
 
 
 class SimplePSApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title(f"SimplePS v{__version__} — 去背景 · 抠图 · 字体模仿 · 图片编辑")
-        self.geometry("1280x840")
-        self.minsize(1000, 680)
+        self.title(f"SimplePS v{__version__} — 图片编辑器")
+        self.geometry("1280x820")
+        self.minsize(940, 620)
         self.configure(bg=BG)
 
         self.image: Image.Image | None = None
@@ -66,7 +78,7 @@ class SimplePSApp(tk.Tk):
         self.rect: tuple[int, int, int, int] | None = None
         self.place_point: tuple[int, int] | None = None
         self.tool = "none"       # none / rect / fg / bg / place
-        self.tool_tab = "bg"     # bg / cutout / text / transform
+        self.tool_tab = "bg"
         self.brush_radius = 16
         self.fg_mask_img: Image.Image | None = None
         self.bg_mask_img: Image.Image | None = None
@@ -91,7 +103,7 @@ class SimplePSApp(tk.Tk):
         self._build_style()
         self._build_ui()
         self._bind_keys()
-        self.set_status("准备就绪 · 打开图片或选择下方工具开始")
+        self.set_status("点击图片区域选择照片，或点击下方工具开始编辑")
 
     # ------------------------------------------------------------ 样式
     def _init_style(self) -> None:
@@ -108,27 +120,18 @@ class SimplePSApp(tk.Tk):
             s.theme_use("clam")
         except tk.TclError:
             pass
-        s.configure("TFrame", background=BG)
-        s.configure("Panel.TFrame", background=PANEL)
-        s.configure("Card.TFrame", background=CARD)
-        s.configure("TLabel", background=BG, foreground=FG, font=("Microsoft YaHei UI", 10))
-        s.configure("Panel.TLabel", background=PANEL, foreground=FG)
-        s.configure("Muted.TLabel", background=PANEL, foreground=MUTED, font=("Microsoft YaHei UI", 9))
-        s.configure("Title.TLabel", background=BG, foreground=FG, font=("Microsoft YaHei UI", 15, "bold"))
-        s.configure("Card.TLabel", background=CARD, foreground=FG)
+        s.configure("TFrame", background=PANEL)
+        s.configure("TLabel", background=PANEL, foreground=FG,
+                    font=("Microsoft YaHei UI", 10))
+        s.configure("Muted.TLabel", background=PANEL, foreground=MUTED,
+                    font=("Microsoft YaHei UI", 9))
         s.configure("TButton", font=("Microsoft YaHei UI", 10), padding=5)
         s.configure("Accent.TButton", background=ACCENT, foreground="#ffffff",
                     borderwidth=0, focusthickness=0, padding=6)
-        s.map("Accent.TButton", background=[("active", "#3d78e8")])
-        s.configure("Tool.TButton", font=("Microsoft YaHei UI", 10), padding=(10, 6))
-        s.configure("ActiveTool.TButton", background=ACCENT, foreground="#ffffff",
-                    font=("Microsoft YaHei UI", 10, "bold"), padding=(10, 6))
-        s.configure("TCheckbutton", background=PANEL, foreground=FG)
-        s.configure("TRadiobutton", background=PANEL, foreground=FG)
+        s.map("Accent.TButton", background=[("active", "#0070e0")])
         s.configure("TScale", background=PANEL, troughcolor=PANEL2)
-        s.configure("TNotebook", background=PANEL, borderwidth=0)
-        s.configure("TNotebook.Tab", background=PANEL2, foreground=MUTED, padding=(12, 6))
-        s.map("TNotebook.Tab", background=[("selected", CARD)], foreground=[("selected", FG)])
+        s.configure("TCombobox", fieldbackground=PANEL2, background=PANEL2,
+                    foreground=FG, selectbackground=ACCENT)
 
     # -------------------------------------------------------------- UI
     def _build_ui(self) -> None:
@@ -136,68 +139,32 @@ class SimplePSApp(tk.Tk):
         self.rowconfigure(1, weight=1)
 
         # ---------- 顶部操作栏 ----------
-        top = tk.Frame(self, bg=BG, height=58)
-        top.grid(row=0, column=0, sticky="ew", padx=14, pady=(8, 4))
-        tk.Label(top, text="SimplePS", bg=BG, fg=FG,
-                 font=("Microsoft YaHei UI", 17, "bold")).pack(side=tk.LEFT)
-        tk.Label(top, text="  图像工作室", bg=BG, fg=MUTED,
+        top = tk.Frame(self, bg=BAR, height=52)
+        top.grid(row=0, column=0, sticky="ew")
+        top.grid_propagate(False)
+        tk.Label(top, text="‹", bg=BAR, fg=MUTED,
+                 font=("Microsoft YaHei UI", 22)).pack(side=tk.LEFT, padx=(14, 2))
+        tk.Label(top, text="SimplePS", bg=BAR, fg=FG,
+                 font=("Microsoft YaHei UI", 15, "bold")).pack(side=tk.LEFT, padx=(4, 2))
+        tk.Label(top, text="  图片编辑", bg=BAR, fg=MUTED,
                  font=("Microsoft YaHei UI", 10)).pack(side=tk.LEFT)
-        tk.Frame(top, bg=BG, width=24).pack(side=tk.LEFT)
-        for text, cmd in [("打开", self.open_image), ("保存", self.save_image),
-                          ("撤销", self.undo), ("重做", self.redo)]:
-            tk.Button(top, text=text, command=cmd, bg=PANEL2, fg=FG,
-                      activebackground=CARD, activeforeground=FG, relief=tk.FLAT,
-                      font=("Microsoft YaHei UI", 10), padx=14, pady=5).pack(side=tk.LEFT, padx=3)
-        tk.Button(top, text="帮助", command=self._show_help_dialog, bg=PANEL2, fg=MUTED,
-                  activebackground=CARD, relief=tk.FLAT, font=("Microsoft YaHei UI", 10),
-                  padx=12, pady=5).pack(side=tk.RIGHT, padx=3)
+        right = tk.Frame(top, bg=BAR)
+        right.pack(side=tk.RIGHT, padx=12)
+        for text, cmd in [("↶", self.undo), ("↷", self.redo)]:
+            tk.Button(right, text=text, command=cmd, bg=BAR, fg=FG,
+                      activebackground=PANEL2, activeforeground=FG, relief=tk.FLAT,
+                      font=("Microsoft YaHei UI", 17), width=3, bd=0).pack(side=tk.LEFT, padx=2)
+        tk.Button(right, text="保存", command=self.save_image, bg=ACCENT, fg="#ffffff",
+                  activebackground="#0070e0", activeforeground="#ffffff", relief=tk.FLAT,
+                  font=("Microsoft YaHei UI", 11, "bold"), padx=16, pady=5, bd=0).pack(
+            side=tk.LEFT, padx=(10, 2))
 
-        # ---------- 主体：画布 + 属性面板 ----------
-        main = ttk.Frame(self)
-        main.grid(row=1, column=0, sticky="nsew", padx=14)
-        main.columnconfigure(0, weight=1)
-        main.columnconfigure(1, weight=0)
-        main.rowconfigure(0, weight=1)
-
-        self._build_canvas(main)
-
-        props = ttk.Frame(main, style="Panel.TFrame", width=330)
-        props.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=(0, 4))
-        props.grid_propagate(False)
-        self.props = props
-
-        # ---------- 底部工具 Tab ----------
-        bottom = tk.Frame(self, bg=PANEL, height=70)
-        bottom.grid(row=2, column=0, sticky="ew", padx=14, pady=(6, 8))
-        self.tool_buttons: dict[str, tk.Button] = {}
-        for key, icon, label in [("bg", "◐", "去背景"), ("cutout", "✂", "抠图"),
-                                 ("text", "T", "字体模仿"), ("transform", "⤢", "变换")]:
-            btn = tk.Button(bottom, text=f"{icon}\n{label}", command=lambda k=key: self.switch_tab(k),
-                            bg=PANEL2, fg=MUTED, activebackground=CARD, activeforeground=FG,
-                            relief=tk.FLAT, font=("Microsoft YaHei UI", 11), width=9, height=2)
-            btn.pack(side=tk.LEFT, padx=5, pady=6)
-            self.tool_buttons[key] = btn
-        tk.Label(bottom, text="滚轮缩放 · 中键拖拽平移 · Ctrl+Z 撤销", bg=PANEL, fg=MUTED,
-                 font=("Microsoft YaHei UI", 9)).pack(side=tk.RIGHT, padx=12)
-
-        # ---------- 状态栏 ----------
-        status = tk.Frame(self, bg=BG, height=24)
-        status.grid(row=3, column=0, sticky="ew", padx=14, pady=(0, 6))
-        self.status_var = tk.StringVar(value="")
-        tk.Label(status, textvariable=self.status_var, bg=BG, fg=MUTED, anchor="w",
-                 font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.info_var = tk.StringVar(value="")
-        tk.Label(status, textvariable=self.info_var, bg=BG, fg=ACCENT2, anchor="e",
-                 font=("Consolas", 9)).pack(side=tk.RIGHT)
-
-        self.switch_tab("bg")
-
-    def _build_canvas(self, parent: ttk.Frame) -> None:
-        wrap = tk.Frame(parent, bg="#12141a")
-        wrap.grid(row=0, column=0, sticky="nsew")
-        wrap.columnconfigure(0, weight=1)
-        wrap.rowconfigure(0, weight=1)
-        self.canvas = tk.Canvas(wrap, bg="#12141a", highlightthickness=0)
+        # ---------- 中央画布（全屏，无右侧面板） ----------
+        stage = tk.Frame(self, bg=BG)
+        stage.grid(row=1, column=0, sticky="nsew")
+        stage.columnconfigure(0, weight=1)
+        stage.rowconfigure(0, weight=1)
+        self.canvas = tk.Canvas(stage, bg=BG, highlightthickness=0)
         self.canvas.grid(row=0, column=0, sticky="nsew")
         self.canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self.canvas.bind("<B1-Motion>", self._on_canvas_move)
@@ -211,177 +178,249 @@ class SimplePSApp(tk.Tk):
         self.canvas.bind("<Button-5>", lambda e: self._zoom_by(1 / 1.12, e))
         self.canvas.bind("<Configure>", self._on_canvas_resize)
 
-    # ---------------------------------------------------------- 属性面板
-    def _clear_props(self) -> None:
-        for w in self.props.winfo_children():
+        # ---------- 工具选项条（随工具切换） ----------
+        self.options = tk.Frame(self, bg=PANEL, height=104)
+        self.options.grid(row=2, column=0, sticky="ew")
+        self.options.grid_propagate(False)
+        self.options_inner = tk.Frame(self.options, bg=PANEL)
+        self.options_inner.pack(fill=tk.BOTH, expand=True, padx=14, pady=8)
+
+        # ---------- 底部图标工具栏 ----------
+        nav = tk.Frame(self, bg=BAR, height=72)
+        nav.grid(row=3, column=0, sticky="ew")
+        nav.grid_propagate(False)
+        # 打开按钮固定在最左
+        self.nav_open = self._make_nav_item(nav, "⊕", "打开", self.open_image)
+        self.nav_open.pack(side=tk.LEFT, padx=(18, 6), pady=6)
+        sep = tk.Frame(nav, bg=LINE, width=1, height=40)
+        sep.pack(side=tk.LEFT, pady=16, padx=4)
+        self.tool_buttons: dict[str, tk.Frame] = {}
+        for key, icon, label in TOOLS:
+            item = self._make_nav_item(nav, icon, label, lambda k=key: self.switch_tab(k))
+            item.pack(side=tk.LEFT, padx=6, pady=6)
+            self.tool_buttons[key] = item
+
+        # ---------- 状态栏 ----------
+        status = tk.Frame(self, bg=BAR, height=22)
+        status.grid(row=4, column=0, sticky="ew")
+        status.grid_propagate(False)
+        self.status_var = tk.StringVar(value="")
+        tk.Label(status, textvariable=self.status_var, bg=BAR, fg=MUTED, anchor="w",
+                 font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=14)
+        self.info_var = tk.StringVar(value="")
+        tk.Label(status, textvariable=self.info_var, bg=BAR, fg=ACCENT2, anchor="e",
+                 font=("Consolas", 9)).pack(side=tk.RIGHT, padx=14)
+
+        self.switch_tab("bg")
+
+    def _make_nav_item(self, parent, icon: str, label: str, cmd) -> tk.Frame:
+        """华为相册风格的底部图标按钮：图标 + 文字，选中态高亮。"""
+        frame = tk.Frame(parent, bg=BAR, cursor="hand2", width=64, height=58)
+        frame.pack_propagate(False)
+        icon_lbl = tk.Label(frame, text=icon, bg=BAR, fg=MUTED,
+                            font=("Segoe UI Symbol", 21))
+        icon_lbl.pack(expand=True)
+        text_lbl = tk.Label(frame, text=label, bg=BAR, fg=MUTED,
+                            font=("Microsoft YaHei UI", 9))
+        text_lbl.pack()
+        frame.configure(icon_lbl=icon_lbl, text_lbl=text_lbl) if False else None
+        frame.icon_lbl = icon_lbl
+        frame.text_lbl = text_lbl
+        for w in (frame, icon_lbl, text_lbl):
+            w.bind("<Button-1>", lambda e: cmd())
+        frame._active = False
+        return frame
+
+    def _set_nav_active(self, frame: tk.Frame, active: bool) -> None:
+        frame._active = active
+        color = ACCENT if active else MUTED
+        bg = BAR
+        frame.configure(bg=bg)
+        frame.icon_lbl.configure(fg=color, bg=bg)
+        frame.text_lbl.configure(fg=color, bg=bg,
+                                 font=("Microsoft YaHei UI", 9, "bold" if active else "normal"))
+
+    # ---------------------------------------------------------- 选项条控件
+    def _clear_options(self) -> None:
+        for w in self.options_inner.winfo_children():
             w.destroy()
 
-    def _card(self, title: str) -> ttk.Frame:
-        f = ttk.Frame(self.props, style="Card.TFrame")
-        f.pack(fill=tk.X, pady=(0, 10), padx=2)
-        tk.Label(f, text=title, bg=CARD, fg=FG,
-                 font=("Microsoft YaHei UI", 10, "bold")).pack(anchor="w", padx=12, pady=(10, 4))
-        return f
+    def _opt_col(self) -> tk.Frame:
+        """选项条中的一列（竖直分区）。"""
+        c = tk.Frame(self.options_inner, bg=PANEL)
+        c.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 18))
+        return c
 
-    def _prop_scale(self, parent, label: str, from_, to, default, resolution,
-                    command=None) -> tk.DoubleVar:
-        row = tk.Frame(parent, bg=CARD)
-        row.pack(fill=tk.X, padx=12, pady=2)
+    def _opt_title(self, parent, text: str) -> None:
+        tk.Label(parent, text=text, bg=PANEL, fg=ACCENT,
+                 font=("Microsoft YaHei UI", 9, "bold")).pack(anchor="w", pady=(0, 4))
+
+    def _opt_scale(self, parent, label: str, from_, to, default, resolution,
+                   command=None, length=150) -> tk.DoubleVar:
+        row = tk.Frame(parent, bg=PANEL)
+        row.pack(fill=tk.X, pady=2)
+        tk.Label(row, text=label, bg=PANEL, fg=MUTED,
+                 font=("Microsoft YaHei UI", 9), width=11, anchor="w").pack(side=tk.LEFT)
         var = tk.DoubleVar(value=default)
-        tk.Label(row, text=label, bg=CARD, fg=MUTED,
-                 font=("Microsoft YaHei UI", 9), width=14, anchor="w").pack(side=tk.LEFT)
         tk.Scale(row, from_=from_, to=to, resolution=resolution, orient=tk.HORIZONTAL,
-                 variable=var, length=180, showvalue=True, bg=CARD, fg=FG,
+                 variable=var, length=length, showvalue=True, bg=PANEL, fg=FG,
                  troughcolor=PANEL2, highlightthickness=0,
                  command=command if command else lambda _: None).pack(side=tk.LEFT)
         return var
 
+    def _opt_button(self, parent, text: str, cmd, primary=False, width=13) -> tk.Widget:
+        if primary:
+            return ttk.Button(parent, text=text, command=cmd, style="Accent.TButton", width=width)
+        return tk.Button(parent, text=text, command=cmd, bg=PANEL2, fg=FG,
+                         activebackground=CARD, activeforeground=FG, relief=tk.FLAT,
+                         font=("Microsoft YaHei UI", 10), padx=8, pady=4, bd=0, width=width)
+
+    # ---------------------------------------------------------- 工具面板
     def switch_tab(self, key: str) -> None:
         self.tool_tab = key
-        for k, btn in self.tool_buttons.items():
-            if k == key:
-                btn.configure(bg=ACCENT, fg="#ffffff",
-                              font=("Microsoft YaHei UI", 11, "bold"))
-            else:
-                btn.configure(bg=PANEL2, fg=MUTED,
-                              font=("Microsoft YaHei UI", 11))
+        for k, item in self.tool_buttons.items():
+            self._set_nav_active(item, k == key)
+        self._set_nav_active(self.nav_open, False)
         self.tool = "none"
         self.rect = None
         self.place_point = None
-        self._clear_props()
+        self._clear_options()
         if key == "bg":
-            self._props_bg()
+            self._options_bg()
         elif key == "cutout":
-            self._props_cutout()
+            self._options_cutout()
         elif key == "text":
-            self._props_text()
+            self._options_text()
+        elif key == "crop":
+            self._options_crop()
+        elif key == "rotate":
+            self._options_rotate()
         else:
-            self._props_transform()
+            self._options_transform()
         self._redraw()
 
-    def _props_bg(self) -> None:
-        c = self._card("背景去除")
-        self.bg_tol = self._prop_scale(c, "颜色容差", 10, 90, 42, 1)
-        self.bg_soft = self._prop_scale(c, "边缘柔和", 0, 40, 12, 1)
-        self.bg_iter = self._prop_scale(c, "GrabCut 迭代", 1, 10, 5, 1)
-        self.bg_feather = self._prop_scale(c, "羽化半径", 0, 4, 1.0, 0.1)
+    def _options_bg(self) -> None:
+        c1 = self._opt_col()
+        self._opt_title(c1, "去背景 · 参数")
+        self.bg_tol = self._opt_scale(c1, "颜色容差", 10, 90, 42, 1)
+        self.bg_soft = self._opt_scale(c1, "边缘柔和", 0, 40, 12, 1)
+        self.bg_iter = self._opt_scale(c1, "GrabCut 迭代", 1, 10, 5, 1)
+        self.bg_feather = self._opt_scale(c1, "羽化半径", 0, 4, 1.0, 0.1)
+        c2 = self._opt_col()
+        self._opt_title(c2, "采样方式")
         self.sample_mode = tk.StringVar(value="corners")
-        tk.Radiobutton(c, text="自动四边采样", variable=self.sample_mode, value="corners",
-                       bg=CARD, fg=FG, selectcolor=PANEL2,
-                       font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=12)
-        tk.Radiobutton(c, text="手动（Ctrl+点击加采样点）", variable=self.sample_mode, value="manual",
-                       bg=CARD, fg=FG, selectcolor=PANEL2,
-                       font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=12)
-        self.sample_label = ttk.Label(c, text="采样点：0", style="Muted.TLabel")
-        self.sample_label.pack(anchor="w", padx=12, pady=2)
-        ttk.Button(c, text="清除采样点", command=self.clear_samples).pack(fill=tk.X, padx=12, pady=4)
-        ttk.Button(c, text="✨ 自动去背景", style="Accent.TButton",
-                   command=self.apply_auto).pack(fill=tk.X, padx=12, pady=(8, 4))
-        ttk.Button(c, text="按颜色去背景", command=self.apply_color).pack(fill=tk.X, padx=12, pady=4)
-        ttk.Label(c, text="提示：纯色背景用「按颜色」；\n复杂背景用「自动」再到抠图页修正。",
-                  style="Muted.TLabel", wraplength=290).pack(anchor="w", padx=12, pady=(6, 10))
+        tk.Radiobutton(c2, text="自动四边采样", variable=self.sample_mode, value="corners",
+                       bg=PANEL, fg=FG, selectcolor=PANEL2, activebackground=PANEL,
+                       font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=1)
+        tk.Radiobutton(c2, text="手动 Ctrl+点击加采样点", variable=self.sample_mode, value="manual",
+                       bg=PANEL, fg=FG, selectcolor=PANEL2, activebackground=PANEL,
+                       font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=1)
+        self.sample_label = tk.Label(c2, text="采样点：0", bg=PANEL, fg=MUTED,
+                                     font=("Microsoft YaHei UI", 9))
+        self.sample_label.pack(anchor="w", pady=2)
+        self._opt_button(c2, "清除采样点", self.clear_samples, width=18).pack(anchor="w", pady=2)
+        c3 = self._opt_col()
+        self._opt_title(c3, "执行")
+        self._opt_button(c3, "✨ 自动去背景", self.apply_auto, primary=True, width=17).pack(pady=3)
+        self._opt_button(c3, "按颜色去背景", self.apply_color, width=17).pack(pady=3)
 
-    def _props_cutout(self) -> None:
-        c = self._card("智能抠图")
+    def _options_cutout(self) -> None:
+        c1 = self._opt_col()
+        self._opt_title(c1, "抠图 · 工具")
         self.tool_var = tk.StringVar(value="rect")
         for txt, val in [("矩形框选", "rect"), ("前景笔刷（保留）", "fg"), ("背景笔刷（擦除）", "bg")]:
-            tk.Radiobutton(c, text=txt, variable=self.tool_var, value=val,
-                           command=self._on_tool_change, bg=CARD, fg=FG, selectcolor=PANEL2,
-                           font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=12, pady=1)
-        self.brush_var = tk.IntVar(value=16)
-        self._prop_scale(c, "笔刷半径", 3, 60, 16, 1, lambda _: self._on_brush_change())
-        self.cut_iter = self._prop_scale(c, "GrabCut 迭代", 1, 10, 6, 1)
-        self.cut_feather = self._prop_scale(c, "羽化半径", 0, 4, 1.0, 0.1)
-        ttk.Button(c, text="✂ 应用抠图", style="Accent.TButton",
-                   command=self.apply_brush).pack(fill=tk.X, padx=12, pady=(10, 4))
-        ttk.Button(c, text="清除标记 / 重选", command=self.clear_marks).pack(fill=tk.X, padx=12, pady=4)
-        ttk.Label(c, text="拖拽矩形框住主体，或用绿/红笔刷标记后应用。",
-                  style="Muted.TLabel", wraplength=290).pack(anchor="w", padx=12, pady=(6, 10))
+            tk.Radiobutton(c1, text=txt, variable=self.tool_var, value=val,
+                           command=self._on_tool_change, bg=PANEL, fg=FG, selectcolor=PANEL2,
+                           activebackground=PANEL, font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=1)
+        c2 = self._opt_col()
+        self._opt_title(c2, "参数")
+        self.brush_var = self._opt_scale(c2, "笔刷半径", 3, 60, 16, 1, lambda _: self._on_brush_change())
+        self.cut_iter = self._opt_scale(c2, "GrabCut 迭代", 1, 10, 6, 1)
+        self.cut_feather = self._opt_scale(c2, "羽化半径", 0, 4, 1.0, 0.1)
+        c3 = self._opt_col()
+        self._opt_title(c3, "执行")
+        self._opt_button(c3, "✂ 应用抠图", self.apply_brush, primary=True, width=16).pack(pady=3)
+        self._opt_button(c3, "清除标记 / 重选", self.clear_marks, width=16).pack(pady=3)
 
-    def _props_text(self) -> None:
-        c = self._card("字体模仿 · 从图片采样")
-        ttk.Label(c, text="① 框选图中文字，输入它的内容，点「分析样式」",
-                  style="Muted.TLabel", wraplength=290).pack(anchor="w", padx=12, pady=(2, 4))
-        tk.Button(c, text="▣ 框选参考文字区域", command=self._start_sample,
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 10),
-                  padx=10, pady=5).pack(fill=tk.X, padx=12, pady=3)
-        self.ref_text = tk.Text(c, height=2, font=("Microsoft YaHei UI", 10), bg=PANEL2, fg=FG,
-                                insertbackground=FG, relief=tk.FLAT)
-        self.ref_text.insert("1.0", "参考文字")
-        self.ref_text.pack(fill=tk.X, padx=12, pady=3)
-        ttk.Button(c, text="🔍 分析样式", command=self.analyze_style).pack(fill=tk.X, padx=12, pady=4)
-
-        info = self._card("识别结果（可手动调整）")
-        self.font_combo = ttk.Combobox(info, values=self.font_names, state="readonly")
+    def _options_text(self) -> None:
+        c1 = self._opt_col()
+        self._opt_title(c1, "① 从图片采样样式")
+        self._opt_button(c1, "▣ 框选参考文字", self._start_sample, width=17).pack(pady=2)
+        self.ref_text_v = tk.StringVar(value="参考文字")
+        tk.Entry(c1, textvariable=self.ref_text_v, bg=PANEL2, fg=FG, insertbackground=FG,
+                 relief=tk.FLAT, font=("Microsoft YaHei UI", 10), width=20).pack(pady=2)
+        self._opt_button(c1, "🔍 分析样式", self.analyze_style, primary=True, width=17).pack(pady=2)
+        c2 = self._opt_col()
+        self._opt_title(c2, "识别结果（可微调）")
+        self.font_combo = ttk.Combobox(c2, values=self.font_names, state="readonly", width=20)
         self.font_combo.set(self._default_font_name)
-        self.font_combo.pack(fill=tk.X, padx=12, pady=3)
-        row = tk.Frame(info, bg=CARD)
-        row.pack(fill=tk.X, padx=12, pady=3)
-        tk.Label(row, text="字号", bg=CARD, fg=MUTED, font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT)
+        self.font_combo.pack(pady=2)
+        row = tk.Frame(c2, bg=PANEL)
+        row.pack(fill=tk.X, pady=2)
+        tk.Label(row, text="字号", bg=PANEL, fg=MUTED, font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT)
         self.font_size = tk.IntVar(value=48)
-        tk.Spinbox(row, from_=8, to=400, textvariable=self.font_size, width=7,
-                   bg=PANEL2, fg=FG).pack(side=tk.LEFT, padx=6)
-        tk.Label(row, text="倾斜°", bg=CARD, fg=MUTED, font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT)
+        tk.Spinbox(row, from_=8, to=400, textvariable=self.font_size, width=6,
+                   bg=PANEL2, fg=FG).pack(side=tk.LEFT, padx=4)
+        tk.Label(row, text="倾斜°", bg=PANEL, fg=MUTED, font=("Microsoft YaHei UI", 9)).pack(side=tk.LEFT)
         self.font_angle = tk.DoubleVar(value=0)
-        tk.Spinbox(row, from_=-45, to=45, textvariable=self.font_angle, width=6,
-                   bg=PANEL2, fg=FG).pack(side=tk.LEFT, padx=6)
-        self.color_btn = tk.Button(info, text="文字颜色", command=self._pick_color,
+        tk.Spinbox(row, from_=-45, to=45, textvariable=self.font_angle, width=5,
+                   bg=PANEL2, fg=FG).pack(side=tk.LEFT, padx=4)
+        self.color_btn = tk.Button(c2, text="文字颜色", command=self._pick_color,
                                    bg="#1e1e1e", fg="#ffffff", relief=tk.FLAT,
-                                   font=("Microsoft YaHei UI", 9), pady=4)
-        self.color_btn.pack(fill=tk.X, padx=12, pady=3)
-        self.style_info = ttk.Label(info, text="尚未分析", style="Muted.TLabel")
-        self.style_info.pack(anchor="w", padx=12, pady=(4, 2))
+                                   font=("Microsoft YaHei UI", 9), pady=3, bd=0, width=20)
+        self.color_btn.pack(pady=2)
+        self.style_info = tk.Label(c2, text="尚未分析", bg=PANEL, fg=MUTED,
+                                   font=("Microsoft YaHei UI", 9), anchor="w", justify="left")
+        self.style_info.pack(anchor="w", pady=2)
+        c3 = self._opt_col()
+        self._opt_title(c3, "② 输入新文字并放置")
+        self.text_box_v = tk.StringVar(value="新文字")
+        tk.Entry(c3, textvariable=self.text_box_v, bg=PANEL2, fg=FG, insertbackground=FG,
+                 relief=tk.FLAT, font=("Microsoft YaHei UI", 10), width=20).pack(pady=2)
+        self._opt_button(c3, "◎ 点击图片选位置", self._start_place, width=18).pack(pady=2)
+        self._opt_button(c3, "T 合成到图片", self.generate_text, primary=True, width=18).pack(pady=2)
+        self._opt_button(c3, "导出文字 PNG", self.export_text, width=18).pack(pady=2)
 
-        c2 = self._card("② 输入新文字并放置")
-        self.text_box = tk.Text(c2, height=2, font=("Microsoft YaHei UI", 10), bg=PANEL2, fg=FG,
-                                insertbackground=FG, relief=tk.FLAT)
-        self.text_box.insert("1.0", "新文字")
-        self.text_box.pack(fill=tk.X, padx=12, pady=3)
-        tk.Button(c2, text="◎ 在图片上点击选择位置", command=self._start_place,
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 10),
-                  padx=10, pady=5).pack(fill=tk.X, padx=12, pady=3)
-        ttk.Button(c2, text="T 合成到图片", style="Accent.TButton",
-                   command=self.generate_text).pack(fill=tk.X, padx=12, pady=4)
-        ttk.Button(c2, text="导出文字为 PNG", command=self.export_text).pack(fill=tk.X, padx=12, pady=4)
+    def _options_crop(self) -> None:
+        c1 = self._opt_col()
+        self._opt_title(c1, "裁剪")
+        self._opt_button(c1, "▣ 框选裁剪区域", self._start_crop, width=17).pack(pady=3)
+        self._opt_button(c1, "✂ 应用裁剪", self.apply_crop, primary=True, width=17).pack(pady=3)
+        c2 = self._opt_col()
+        self._opt_title(c2, "说明")
+        tk.Label(c2, text="在画布上拖拽出矩形后点「应用裁剪」，\n可随时用顶部 ↶ 撤销返回。",
+                 bg=PANEL, fg=MUTED, font=("Microsoft YaHei UI", 9),
+                 justify="left").pack(anchor="w")
 
-    def _props_transform(self) -> None:
-        c = self._card("图片变换")
-        ttk.Label(c, text="缩放", style="Muted.TLabel").pack(anchor="w", padx=12, pady=(4, 0))
-        self.scale_var = tk.DoubleVar(value=100)
-        self._prop_scale(c, "比例 %", 10, 400, 100, 5)
-        row = tk.Frame(c, bg=CARD)
-        row.pack(fill=tk.X, padx=12, pady=3)
-        tk.Button(row, text="缩小 50%", command=lambda: self.apply_scale(0.5),
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 9), padx=8).pack(side=tk.LEFT, padx=2)
-        tk.Button(row, text="放大 2×", command=lambda: self.apply_scale(2.0),
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 9), padx=8).pack(side=tk.LEFT, padx=2)
-        ttk.Button(c, text="按比例应用缩放", command=lambda: self.apply_scale(self.scale_var.get() / 100.0)).pack(
-            fill=tk.X, padx=12, pady=4)
+    def _options_rotate(self) -> None:
+        c1 = self._opt_col()
+        self._opt_title(c1, "90° 旋转")
+        row = tk.Frame(c1, bg=PANEL)
+        row.pack(pady=3)
+        self._opt_button(row, "↶ 左转 90°", lambda: self.apply_rotate90(-1), width=12).pack(side=tk.LEFT, padx=2)
+        self._opt_button(row, "↷ 右转 90°", lambda: self.apply_rotate90(1), width=12).pack(side=tk.LEFT, padx=2)
+        self._opt_title(c1, "任意角度")
+        self.rot_var = self._opt_scale(c1, "角度", -180, 180, 0, 1)
+        self._opt_button(c1, "应用旋转", lambda: self.apply_rotate(self.rot_var.get()),
+                         primary=True, width=16).pack(pady=3)
 
-        c2 = self._card("旋转 / 翻转")
-        row2 = tk.Frame(c2, bg=CARD)
-        row2.pack(fill=tk.X, padx=12, pady=3)
-        tk.Button(row2, text="↶ 90°", command=lambda: self.apply_rotate90(-1),
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 9), padx=8).pack(side=tk.LEFT, padx=2)
-        tk.Button(row2, text="↷ 90°", command=lambda: self.apply_rotate90(1),
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 9), padx=8).pack(side=tk.LEFT, padx=2)
-        tk.Button(row2, text="⇋ 水平", command=lambda: self.apply_flip("horizontal"),
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 9), padx=8).pack(side=tk.LEFT, padx=2)
-        tk.Button(row2, text="⇅ 垂直", command=lambda: self.apply_flip("vertical"),
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 9), padx=8).pack(side=tk.LEFT, padx=2)
-        self.rot_var = tk.DoubleVar(value=0)
-        self._prop_scale(c2, "任意角度", -180, 180, 0, 1)
-        ttk.Button(c2, text="应用旋转", command=lambda: self.apply_rotate(self.rot_var.get())).pack(
-            fill=tk.X, padx=12, pady=4)
-
-        c3 = self._card("裁剪")
-        tk.Button(c3, text="▣ 框选裁剪区域", command=self._start_crop,
-                  bg=PANEL2, fg=FG, relief=tk.FLAT, font=("Microsoft YaHei UI", 10),
-                  padx=10, pady=5).pack(fill=tk.X, padx=12, pady=3)
-        ttk.Button(c3, text="✂ 应用裁剪", style="Accent.TButton",
-                   command=self.apply_crop).pack(fill=tk.X, padx=12, pady=4)
-        ttk.Label(c3, text="在画布上拖拽出矩形后应用，可撤销返回。",
-                  style="Muted.TLabel", wraplength=290).pack(anchor="w", padx=12, pady=(4, 10))
+    def _options_transform(self) -> None:
+        c1 = self._opt_col()
+        self._opt_title(c1, "缩放")
+        self.scale_var = self._opt_scale(c1, "比例 %", 10, 400, 100, 5)
+        row = tk.Frame(c1, bg=PANEL)
+        row.pack(pady=3)
+        self._opt_button(row, "缩小 50%", lambda: self.apply_scale(0.5), width=10).pack(side=tk.LEFT, padx=2)
+        self._opt_button(row, "放大 2×", lambda: self.apply_scale(2.0), width=10).pack(side=tk.LEFT, padx=2)
+        self._opt_button(c1, "按比例应用缩放",
+                         lambda: self.apply_scale(self.scale_var.get() / 100.0),
+                         primary=True, width=16).pack(pady=3)
+        c2 = self._opt_col()
+        self._opt_title(c2, "镜像翻转")
+        row2 = tk.Frame(c2, bg=PANEL)
+        row2.pack(pady=3)
+        self._opt_button(row2, "⇋ 水平", lambda: self.apply_flip("horizontal"), width=11).pack(side=tk.LEFT, padx=2)
+        self._opt_button(row2, "⇅ 垂直", lambda: self.apply_flip("vertical"), width=11).pack(side=tk.LEFT, padx=2)
 
     # ------------------------------------------------------------ 画布交互
     def _bind_keys(self) -> None:
@@ -436,7 +475,8 @@ class SimplePSApp(tk.Tk):
 
     def clear_samples(self) -> None:
         self.samples = []
-        self.sample_label.config(text="采样点：0")
+        if hasattr(self, "sample_label"):
+            self.sample_label.config(text="采样点：0")
         self.set_status("已清除背景采样点")
 
     def clear_marks(self) -> None:
@@ -462,17 +502,23 @@ class SimplePSApp(tk.Tk):
         self._redraw()
 
     def _on_brush_change(self) -> None:
-        self.brush_radius = int(self.brush_var.get())
+        self.brush_radius = int(self.brush_var.get()) if hasattr(self, "brush_var") else 16
 
     def _start_sample(self) -> None:
+        if not self._require_image():
+            return
         self.tool = "rect"
         self.set_status("在图片上拖拽框住参考文字，然后点「分析样式」")
 
     def _start_place(self) -> None:
+        if not self._require_image():
+            return
         self.tool = "place"
         self.set_status("在图片上点击选择文字放置位置")
 
     def _start_crop(self) -> None:
+        if not self._require_image():
+            return
         self.tool = "rect"
         self.set_status("在图片上拖拽出裁剪区域，然后点「应用裁剪」")
 
@@ -502,7 +548,9 @@ class SimplePSApp(tk.Tk):
         self.set_status(f"已添加背景采样点 {p}")
 
     def _on_canvas_press(self, event) -> None:
+        # 无图片：点击画布任意位置直接选择图片
         if self.image is None:
+            self.open_image()
             return
         if self.tool == "place":
             self.place_point = self._canvas_to_image(event.x, event.y)
@@ -557,7 +605,6 @@ class SimplePSApp(tk.Tk):
         self._pan_start = None
 
     def _on_wheel(self, event) -> None:
-        """Windows 滚轮：event.delta 为 120 的整数倍。"""
         factor = 1.12 if event.delta > 0 else 1 / 1.12
         self._zoom_by(factor, event)
 
@@ -565,7 +612,6 @@ class SimplePSApp(tk.Tk):
         old = self._zoom
         self._zoom = max(0.25, min(8.0, self._zoom * factor))
         if event is not None and self.image is not None:
-            # 以鼠标位置为中心缩放
             mx, my = event.x, event.y
             self._pan = (int(mx - (mx - self._pan[0]) * self._zoom / old),
                          int(my - (my - self._pan[1]) * self._zoom / old))
@@ -592,9 +638,19 @@ class SimplePSApp(tk.Tk):
         canvas.delete("all")
         cw, ch = max(1, canvas.winfo_width()), max(1, canvas.winfo_height())
         if self.image is None:
-            canvas.create_text(cw // 2, ch // 2,
-                               text="打开一张图片开始编辑\n或使用下方工具",
-                               fill=MUTED, font=("Microsoft YaHei UI", 16), justify=tk.CENTER)
+            # 华为相册风格空状态：虚线框 + 加号 + 提示
+            bw, bh = min(420, cw - 60), min(260, ch - 60)
+            x0, y0 = (cw - bw) // 2, (ch - bh) // 2
+            x1, y1 = x0 + bw, y0 + bh
+            canvas.create_rectangle(x0, y0, x1, y1, outline="#3a3a3c", width=2, dash=(8, 6))
+            cx, cy = cw // 2, y0 + bh // 2 - 18
+            canvas.create_oval(cx - 30, cy - 30, cx + 30, cy + 30, outline=ACCENT, width=3)
+            canvas.create_line(cx - 14, cy, cx + 14, cy, fill=ACCENT, width=3)
+            canvas.create_line(cx, cy - 14, cx, cy + 14, fill=ACCENT, width=3)
+            canvas.create_text(cw // 2, y0 + bh - 56, text="点击此处选择图片",
+                               fill=FG, font=("Microsoft YaHei UI", 15, "bold"))
+            canvas.create_text(cw // 2, y0 + bh - 30, text="支持 PNG / JPG / BMP / WebP",
+                               fill=MUTED, font=("Microsoft YaHei UI", 10))
             return
 
         disp = self.image.copy()
@@ -603,7 +659,7 @@ class SimplePSApp(tk.Tk):
         if self.bg_overlay is not None:
             disp = Image.alpha_composite(disp, self.bg_overlay)
 
-        pad = 40
+        pad = 36
         fit = min((cw - pad) / disp.width, (ch - pad) / disp.height)
         scale = max(0.05, fit * self._zoom)
         w, h = max(1, int(disp.width * scale)), max(1, int(disp.height * scale))
@@ -612,7 +668,6 @@ class SimplePSApp(tk.Tk):
         self._view_scale = scale
 
         thumb = disp.resize((w, h), Image.Resampling.LANCZOS)
-        # 向量化生成棋盘格底图，表示透明背景
         cs = 12
         yy = (np.arange(h) // cs)[:, None]
         xx = (np.arange(w) // cs)[None, :]
@@ -637,7 +692,7 @@ class SimplePSApp(tk.Tk):
 
     # -------------------------------------------------------------- 文件
     def open_image(self) -> None:
-        path = filedialog.askopenfilename(title="打开图片", filetypes=FILE_TYPES)
+        path = filedialog.askopenfilename(title="选择图片", filetypes=FILE_TYPES)
         if not path:
             return
         try:
@@ -688,7 +743,7 @@ class SimplePSApp(tk.Tk):
 
     def _require_image(self) -> bool:
         if self.image is None:
-            messagebox.showinfo("提示", "请先打开一张图片")
+            messagebox.showinfo("提示", "请先点击画布选择一张图片")
             return False
         return True
 
@@ -701,7 +756,7 @@ class SimplePSApp(tk.Tk):
                             tolerance=float(self.bg_tol.get()),
                             feather=float(self.bg_feather.get()))
         if result is not None:
-            self._set_image(result, "自动去背景完成 · 可用撤销返回")
+            self._set_image(result, "自动去背景完成 · 可用 ↶ 撤销返回")
 
     def apply_color(self) -> None:
         if not self._require_image():
@@ -755,9 +810,9 @@ class SimplePSApp(tk.Tk):
         if not self._require_image():
             return
         if self.rect is None:
-            messagebox.showinfo("提示", "请先点「框选参考文字区域」并在图片上框住一行文字")
+            messagebox.showinfo("提示", "请先点「框选参考文字」并在图片上框住一行文字")
             return
-        ref = self.ref_text.get("1.0", tk.END).strip()
+        ref = self.ref_text_v.get().strip()
         self.set_status("正在分析字体样式，请稍候…")
         self.update_idletasks()
 
@@ -780,7 +835,7 @@ class SimplePSApp(tk.Tk):
                               fg="#000" if sum(self.text_color[:3]) > 380 else "#fff")
         self.style_info.config(
             text=f"字体：{style.font_name}\n字号：{style.size} · 倾斜：{style.angle}°\n"
-                 f"匹配置信度：{style.confidence:.2f}")
+                 f"置信度：{style.confidence:.2f}")
         self.set_status("样式分析完成 · 输入新文字并选位置即可合成")
 
     def _current_style(self) -> TextStyle:
@@ -796,7 +851,7 @@ class SimplePSApp(tk.Tk):
     def generate_text(self) -> None:
         if not self._require_image():
             return
-        text = self.text_box.get("1.0", tk.END).strip()
+        text = self.text_box_v.get().strip()
         if not text:
             messagebox.showinfo("提示", "请先输入要生成的文字")
             return
@@ -806,7 +861,7 @@ class SimplePSApp(tk.Tk):
             self._set_image(result, f"文字已合成到 {pos} · 可撤销返回")
 
     def export_text(self) -> None:
-        text = self.text_box.get("1.0", tk.END).strip()
+        text = self.text_box_v.get().strip()
         if not text:
             messagebox.showinfo("提示", "请先输入文字")
             return
@@ -862,18 +917,6 @@ class SimplePSApp(tk.Tk):
         result = self._busy(crop_image, self.image, self.rect)
         if result is not None:
             self._set_image(result, f"裁剪完成 → {result.width}×{result.height}")
-
-    def _show_help_dialog(self) -> None:
-        messagebox.showinfo("SimplePS 使用说明",
-            "1. 打开图片后，从底部选择工具。\n\n"
-            "2. 去背景：纯色用「按颜色」，复杂背景用「自动去背景」。\n\n"
-            "3. 抠图：拖拽矩形框住主体，或用绿/红笔刷标记后应用。\n\n"
-            "4. 字体模仿：\n"
-            "   · 点「框选参考文字区域」在图片上框住一行字；\n"
-            "   · 输入图中文字内容，点「分析样式」识别字体/字号/倾斜/颜色；\n"
-            "   · 输入新文字，点图片选位置，再点「合成到图片」。\n\n"
-            "5. 变换：缩放、旋转、裁剪、翻转，均可 Ctrl+Z 撤销。\n\n"
-            "6. 滚轮缩放画布，中键拖拽平移；Ctrl+O/S 打开/保存。")
 
 
 def run_gui() -> int:
