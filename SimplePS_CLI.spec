@@ -5,14 +5,20 @@ block_cipher = None
 
 hidden_imports = [
     "tkinter", "tkinter.ttk", "PIL.Image", "PIL.ImageFont", "PIL.ImageTk",
-    "numpy", "cv2",
+    "numpy", "cv2", "customtkinter", "darkdetect",
 ]
+
+try:
+    from PyInstaller.utils.hooks import collect_data_files
+    ctk_datas = collect_data_files("customtkinter")
+except Exception:
+    ctk_datas = []
 
 a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=ctk_datas,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

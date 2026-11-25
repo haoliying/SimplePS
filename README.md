@@ -1,12 +1,18 @@
 # SimplePS
 
-> 现代化图像处理桌面工具：**去背景 / 抠图 / 字体模仿 / 图片编辑**，完全离线运行。v2.1 采用华为相册风格的沉浸式深色界面。
+> 现代化图像处理桌面工具：**去背景 / 抠图 / 字体模仿 / 图片编辑**，完全离线运行。v3.0 采用「极光」主题——深空蓝紫渐变 + 霓虹青紫粉强调色 + 玻璃拟态卡片 + 悬浮胶囊工具栏，手机修图 App 质感。
 
-基于 Python + OpenCV + Pillow + tkinter。提供 Windows 单文件 EXE（无需安装 Python），也可作为命令行工具批处理。
+基于 Python + OpenCV + Pillow + customtkinter。提供 Windows 单文件 EXE（无需安装 Python），也可作为命令行工具批处理。
 
-![界面预览](examples/ui_text.png)
+![去背景界面](examples/v3_bg_done.png)
 
-> v2.1 界面：全屏深色画布 + 顶部简洁操作栏（↶ 撤销 / ↷ 重做 / 保存）+ 底部图标工具栏（打开 / 去背景 / 抠图 / 文字 / 裁剪 / 旋转 / 变换，选中高亮）。**没有图片时，直接点击画布中央的「＋ 点击此处选择图片」即可打开选图**，无需再找小按钮。空状态见 `examples/ui_empty.png`。
+> v3.0 界面：极光渐变顶栏（◈ 品牌标识 + ↶ 撤销 / ↷ 重做 / 保存）+ 全屏棋盘格画布 + 居中玻璃选项卡片 + 底部悬浮胶囊工具栏（选中项青色高亮发光）。**没有图片时，直接点击画布中央的霓虹「＋」圆环即可选图**。空状态见 `examples/v3_empty.png`。
+
+### v3.0 亮点
+
+- **界面焕新**：从原生 tkinter 升级到 customtkinter，"极光"设计语言，圆角卡片 / 渐变 / 程序化矢量图标，真正像手机修图 App。
+- **去背景快 6~8 倍**：GrabCut 与颜色距离改在缩略图（最长边 1024）上计算再放大还原，一张 600 万像素照片从 ~5.3s 降到 ~0.65s，画质无损。
+- **去掉"应用"按钮，即时生效**：调节参数或框选/涂抹完成后自动处理，撤销栈保护每一步。裁剪、旋转、缩放松开即定稿。
 
 ---
 
@@ -36,7 +42,7 @@
 ## 下载 Windows EXE
 
 - 仓库地址：<https://github.com/haoliying/SimplePS>
-- 已构建好的 EXE：<https://github.com/haoliying/SimplePS/releases/tag/v1.0.0>（`SimplePS.exe` 与 `SimplePS-cli.exe`）
+- 已构建好的 EXE：<https://github.com/haoliying/SimplePS/releases/tag/v3.0.0>（`SimplePS.exe` 与 `SimplePS-cli.exe`）
 
 也可以进入仓库 **Actions** → **Build Windows EXE** → 点击最新一次成功运行，在 **Artifacts** 中下载 `SimplePS-Windows.zip`。
 

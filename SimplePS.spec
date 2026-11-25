@@ -15,13 +15,22 @@ hidden_imports = [
     "PIL.ImageTk",
     "numpy",
     "cv2",
+    "customtkinter",
+    "darkdetect",
 ]
+
+# 收集 customtkinter 的 JSON 主题资源
+try:
+    from PyInstaller.utils.hooks import collect_data_files
+    ctk_datas = collect_data_files("customtkinter")
+except Exception:
+    ctk_datas = []
 
 a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=ctk_datas,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
